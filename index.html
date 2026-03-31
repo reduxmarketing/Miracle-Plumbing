@@ -1390,10 +1390,8 @@ document.addEventListener('DOMContentLoaded', () => {
 // Override toggleTask to also save to Firebase
 const _origToggleTask = toggleTask;
 window.toggleTask = function(key, el) {
-  // If already locked, do nothing
-  if(el.classList.contains('locked')) return;
   _origToggleTask(key, el);
-  // Check if should lock: checked + name assigned
+  // Lock if checked + name assigned
   if(taskState[key] && assignState[key]) {
     lockTask(el, key);
   }
