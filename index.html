@@ -1482,14 +1482,29 @@ function applyEditRestrictions() {
   });
 }
 
-// Override toggleTask — team can CHECK, only admin can UNCHECK
+// Override toggleTask — team can CHECK, only admin can UNCHECK locked tasks
 const _adminOrigToggle = window.toggleTask;
 window.toggleTask = function(key, el) {
   const alreadyDone = taskState[key];
+  // If task is locked and user is admin — force unlock first then toggle
+  if(el.classList.contains('locked') && isAdmin) {
+    // Unlock the task
+    el.classList.remove('locked');
+    const sel = el.querySelector('.task-assign');
+    if(sel) sel.disabled = false;
+    const lockBadge = el.querySelector('.lock-badge');
+    if(lockBadge) lockBadge.remove();
+    // Re-attach onclick
+    const match = key;
+    el.onclick = function(){ toggleTask(match, el); };
+    // Now toggle
+    _adminOrigToggle(key, el);
+    return;
+  }
+  // If task is locked and NOT admin — block
+  if(el.classList.contains('locked') && !isAdmin) return;
   // If task is already checked — only admin can uncheck
   if(alreadyDone && !isAdmin) return;
-  // If task is locked — nobody can change it
-  if(el.classList.contains('locked')) return;
   _adminOrigToggle(key, el);
 };
 
