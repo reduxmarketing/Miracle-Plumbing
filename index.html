@@ -193,6 +193,23 @@ body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:14
 .grid-overlay{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(30,144,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(30,144,255,.03) 1px,transparent 1px);background-size:60px 60px;opacity:.5}
 .scanline{position:fixed;top:-100%;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,rgba(30,144,255,.15),rgba(230,57,70,.1),transparent);z-index:1;pointer-events:none;animation:scan 6s linear infinite}
 @keyframes scan{0%{top:-5%}100%{top:105%}}
+
+/* TIMELINE */
+.timeline-wrap{padding:32px 32px 24px;border-bottom:1px solid var(--border)}
+.timeline-inner{max-width:1200px;margin:0 auto}
+.tl-eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:#aaa;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+.tl-eyebrow::before{content:'';width:20px;height:1px;background:var(--text3)}
+.timeline-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:2px}
+.tl-month{background:var(--card);border:1px solid var(--border);border-radius:4px;padding:12px 10px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.tl-month:hover{border-color:var(--border2);background:var(--card2)}
+.tl-month.active{border-color:var(--blue);background:rgba(30,144,255,.08)}
+.tl-month.active .tl-num{color:var(--blue)}
+.tl-bar{position:absolute;bottom:0;left:0;height:2px;background:linear-gradient(90deg,var(--blue),var(--red));width:0%;transition:width .5s}
+.tl-num{font-family:var(--display);font-size:28px;letter-spacing:1px;color:#333;line-height:1;transition:color .2s}
+.tl-name{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:#aaa;text-transform:uppercase;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-pct{font-family:var(--mono);font-size:9px;color:#aaa;margin-top:6px}
+.tl-phase{display:inline-block;font-family:var(--mono);font-size:7px;letter-spacing:1px;padding:2px 5px;border-radius:2px;margin-top:4px;text-transform:uppercase}
+@media(max-width:900px){.timeline-grid{grid-template-columns:repeat(6,1fr)}}
 </style>
 </head>
 <body>
@@ -261,6 +278,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--body);font-size:14
     <div class="client-field"><span class="client-label">Start Month</span><span class="client-val client-editable" id="ci-start" contenteditable="true" spellcheck="false">Month Year</span></div>
     <div class="client-sep"></div>
     <div class="client-field"><span class="client-label">Current Month</span><span class="client-val" id="ci-cur">Month 1</span></div>
+  </div>
+</div>
+
+<!-- TIMELINE -->
+<div class="timeline-wrap">
+  <div class="timeline-inner">
+    <div class="tl-eyebrow">12-Month Overview</div>
+    <div class="timeline-grid" id="tl-grid"></div>
   </div>
 </div>
 
@@ -664,6 +689,21 @@ function getRecurring(monthNum) {
   return data.recurring || null;
 }
 
+
+function buildTimeline() {
+  const grid = document.getElementById('tl-grid');
+  if(!grid) return;
+  grid.innerHTML = PHASES.map(p => `
+    <div class="tl-month" id="tl-${p.num}" onclick="showMonth(${p.num})">
+      <div class="tl-bar" id="tlbar-${p.num}"></div>
+      <div class="tl-num">${String(p.num).padStart(2,'0')}</div>
+      <div class="tl-name">${p.name}</div>
+      <div class="tl-pct" id="tlpct-${p.num}">0%</div>
+      <div class="tl-phase ${p.phClass}">${p.phase}</div>
+    </div>
+  `).join('');
+}
+
 function buildTabs() {
   document.getElementById('tab-row').innerHTML = PHASES.map(p =>
     `<button class="tab" id="tab-${p.num}" onclick="showMonth(${p.num})">${String(p.num).padStart(2,'0')} ${p.name}</button>`
@@ -734,10 +774,13 @@ function showMonth(n) {
   currentMonth = n;
   document.querySelectorAll('.month-panel').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tl-month').forEach(t=>t.classList.remove('active'));
   const panel = document.getElementById('panel-'+n);
   const tab = document.getElementById('tab-'+n);
+  const tl = document.getElementById('tl-'+n);
   if(panel) panel.classList.add('active');
   if(tab) { tab.classList.add('active'); tab.scrollIntoView({block:'nearest',inline:'center',behavior:'smooth'}); }
+  if(tl) tl.classList.add('active');
   document.getElementById('ci-cur').textContent = 'Month '+n;
 }
 
@@ -753,6 +796,10 @@ function updateProgress(n) {
   if(pctEl) pctEl.textContent=pct+'%';
   if(barEl) barEl.style.width=pct+'%';
   if(tcEl) tcEl.textContent=done+' / '+total+' tasks';
+  const tlPct=document.getElementById('tlpct-'+n);
+  const tlBar=document.getElementById('tlbar-'+n);
+  if(tlPct) tlPct.textContent=pct+'%';
+  if(tlBar) tlBar.style.width=pct+'%';
 }
 
 function updateMasterProgress() {
@@ -781,6 +828,7 @@ ref.once('value').then(snap => {
       });
     }
   }
+  buildTimeline();
   buildTabs();
   buildPanels();
   showMonth(1);
