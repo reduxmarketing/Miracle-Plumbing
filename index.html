@@ -1559,6 +1559,7 @@ function submitLogin() {
     const loginRef = db.ref('clients/miracle-plumbing/loginLog').push();
     loginRef.set({
       user: userName,
+      page: 'Miracle Plumbing AZ',
       timestamp: new Date().toISOString(),
       date: new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'}),
       time: new Date().toLocaleTimeString('en-US', {hour:'2-digit',minute:'2-digit'})
