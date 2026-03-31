@@ -889,7 +889,7 @@ function buildPanels() {
         <div>${c.tasks.map((t,i)=>{
           const key = `${p.num}-${c.title}-${i}`;
           const done = taskState[key];
-          return `<div class="task" onclick="toggleTask('${key}',this)">
+          return `<div class="task" data-key="${key}" onclick="handleTaskClick(this)">
             <div class="chk${done?' done':''}"></div>
             <div class="task-body">
               <div class="task-text${done?' done':''}">${t.text}</div>
@@ -1488,26 +1488,53 @@ function applyEditRestrictions() {
   });
 }
 
-// Override toggleTask — team can CHECK, only admin can UNCHECK
-const _adminOrigToggle = window.toggleTask;
-window.toggleTask = function(key, el) {
+// Single unified task click handler
+function handleTaskClick(el) {
+  const key = el.getAttribute('data-key');
+  if(!key) return;
+
   const alreadyDone = taskState[key];
   const isLocked = el.classList.contains('locked');
 
-  // Admin can do anything
+  // ADMIN: can do anything
   if(isAdmin) {
-    if(isLocked) unlockTask(el, key);
-    _adminOrigToggle(key, el);
+    if(isLocked) {
+      // Unlock it
+      el.classList.remove('locked');
+      const sel = el.querySelector('.task-assign');
+      if(sel) sel.disabled = false;
+      const lockBadge = el.querySelector('.lock-badge');
+      if(lockBadge) lockBadge.remove();
+    }
+    // Toggle state
+    taskState[key] = !taskState[key];
+    const chk = el.querySelector('.chk');
+    const txt = el.querySelector('.task-text');
+    if(chk) chk.classList.toggle('done', taskState[key]);
+    if(txt) txt.classList.toggle('done', taskState[key]);
+    // Re-lock if checked + assigned
+    if(taskState[key] && assignState[key]) lockTask(el, key);
+    const monthNum = parseInt(key.split('-')[0]);
+    updateProgress(monthNum);
     saveToFirebase();
     return;
   }
 
-  // Team: blocked if locked or already checked
+  // TEAM: blocked if locked or already checked
   if(isLocked || alreadyDone) return;
 
-  // Team: can check a task
-  _adminOrigToggle(key, el);
-};
+  // TEAM: can check unchecked tasks
+  taskState[key] = true;
+  const chk = el.querySelector('.chk');
+  const txt = el.querySelector('.task-text');
+  if(chk) chk.classList.add('done');
+  if(txt) txt.classList.add('done');
+  // Lock if name assigned
+  if(assignState[key]) lockTask(el, key);
+  const monthNum = parseInt(key.split('-')[0]);
+  updateProgress(monthNum);
+  saveToFirebase();
+}
 
 // Apply restrictions after every render
 const _origBuildPanels = buildPanels;
