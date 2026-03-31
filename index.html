@@ -1331,19 +1331,27 @@ function saveToFirebase() {
 
 function lockTask(el, key) {
   el.classList.add('locked');
-  el.onclick = null;
+  // Keep onclick active but the toggle handler checks lock state
+  el.setAttribute('data-key', key);
   const sel = el.querySelector('.task-assign');
   if(sel) {
     sel.disabled = true;
     sel.classList.add('assigned');
   }
-  // Add lock badge if not already there
   if(!el.querySelector('.lock-badge')) {
     const badge = document.createElement('span');
     badge.className = 'lock-badge';
     badge.textContent = '🔒';
     el.appendChild(badge);
   }
+}
+
+function unlockTask(el, key) {
+  el.classList.remove('locked');
+  const sel = el.querySelector('.task-assign');
+  if(sel) sel.disabled = false;
+  const lockBadge = el.querySelector('.lock-badge');
+  if(lockBadge) lockBadge.remove();
 }
 
 function applyLocks() {
@@ -1482,29 +1490,24 @@ function applyEditRestrictions() {
   });
 }
 
-// Override toggleTask — team can CHECK, only admin can UNCHECK locked tasks
+// Override toggleTask — team can CHECK, only admin can UNCHECK
 const _adminOrigToggle = window.toggleTask;
 window.toggleTask = function(key, el) {
   const alreadyDone = taskState[key];
-  // If task is locked and user is admin — force unlock first then toggle
-  if(el.classList.contains('locked') && isAdmin) {
-    // Unlock the task
-    el.classList.remove('locked');
-    const sel = el.querySelector('.task-assign');
-    if(sel) sel.disabled = false;
-    const lockBadge = el.querySelector('.lock-badge');
-    if(lockBadge) lockBadge.remove();
-    // Re-attach onclick
-    const match = key;
-    el.onclick = function(){ toggleTask(match, el); };
-    // Now toggle
+  const isLocked = el.classList.contains('locked');
+
+  // Admin can do anything
+  if(isAdmin) {
+    if(isLocked) unlockTask(el, key);
     _adminOrigToggle(key, el);
+    saveToFirebase();
     return;
   }
-  // If task is locked and NOT admin — block
-  if(el.classList.contains('locked') && !isAdmin) return;
-  // If task is already checked — only admin can uncheck
-  if(alreadyDone && !isAdmin) return;
+
+  // Team: blocked if locked or already checked
+  if(isLocked || alreadyDone) return;
+
+  // Team: can check a task
   _adminOrigToggle(key, el);
 };
 
